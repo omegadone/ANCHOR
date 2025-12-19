@@ -1,1 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartTask | AI-Driven Scheduler</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="glass">
+            <h1>Smart<span>Task</span></h1>
+            <div class="settings-trigger" id="settingsBtn">⚙️ Settings</div>
+        </header>
 
+        <main class="dashboard">
+            <section class="controls-column">
+                <div class="card glass">
+                    <h3>Add New Task</h3>
+                    <form id="taskForm">
+                        <input type="text" id="taskTitle" placeholder="Task Name" required>
+                        <div class="input-group">
+                            <input type="number" id="taskHours" placeholder="Hours" min="0.5" step="0.5" required>
+                            <select id="taskPriority">
+                                <option value="1">Low Priority</option>
+                                <option value="2" selected>Medium</option>
+                                <option value="3">High Priority</option>
+                            </select>
+                        </div>
+                        <input type="date" id="taskDeadline" required>
+                        <button type="submit" class="btn-primary">Add to Schedule</button>
+                    </form>
+                </div>
+
+                <div class="card glass settings-panel hidden" id="settingsPanel">
+                    <h3>Work-Life Balance</h3>
+                    <label>Daily Work Capacity (Hours)</label>
+                    <input type="range" id="dailyCapacity" min="1" max="16" value="8">
+                    <span id="capacityValue">8 hrs</span>
+                </div>
+            </section>
+
+            <section class="schedule-column">
+                <div class="status-card glass">
+                    <div class="metric">
+                        <small>Today's Required Effort</small>
+                        <h2 id="burnRate">0.0 hrs</h2>
+                    </div>
+                    <div class="progress-container">
+                        <div class="progress-bar" id="loadBar"></div>
+                    </div>
+                    <p id="statusMessage">Add tasks to see your optimized schedule.</p>
+                </div>
+
+                <div class="task-list-container">
+                    <h3>Recommended for Today</h3>
+                    <div id="dailyTasks" class="task-grid">
+                        </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script type="module" src="src/app.js"></script>
+</body>
+</html>
