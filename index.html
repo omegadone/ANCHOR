@@ -15,7 +15,10 @@
                 <h5>AI Driven Scheduler</h5>
             </div>
             
-            <div class="settings-trigger" id="settingsBtn" style="cursor: pointer;">⚙️ Theme</div>
+            <div class="header-actions" style="display: flex; gap: 15px; align-items: center;">
+                <button id="themeToggle" class="glass" style="padding: 8px 12px; cursor: pointer; border-radius: 12px; font-size: 0.8rem; color: var(--text-main);">🌓 Theme</button>
+                <div class="settings-trigger" id="settingsBtn" style="cursor: pointer; font-size: 1.2rem;">⚙️</div>
+            </div>
         </header>
 
         <main class="dashboard">
@@ -57,14 +60,10 @@
                     <p id="statusMessage">Add tasks to see your optimized schedule.</p>
                 </div>
 
-                <div class="task-list-container">
-                    <h3>Recommended for Today</h3>
-                    <div id="dailyTasks" class="task-grid"></div>
-                </div>
+                <div id="dailyTasks" class="task-grid"></div>
             </section>
         </main>
     </div>
-
     <script type="module" src="src/app.js"></script>
 </body>
 </html>

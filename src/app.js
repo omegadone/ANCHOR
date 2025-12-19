@@ -3,22 +3,14 @@ import { Storage } from './store/storage.js';
 import { Theme } from './ui/theme.js';
 import { Components } from './ui/components.js';
 
-// --- GLOBAL STATE ---
-const State = { 
-    viewingDate: new Date() 
-};
+const State = { viewingDate: new Date() };
 State.viewingDate.setHours(0,0,0,0);
 
-/**
- * CORE RENDER ENGINE
- */
 const render = () => {
     try {
-        const tasks = Storage.getTasks() || [];
-        const settings = Storage.getSettings() || { dailyCapacity: 8 };
-        const capacity = settings.dailyCapacity || 8;
-
-        // 1. Update Live Time for active timers
+        const tasks = Storage.getTasks();
+        const settings = Storage.getSettings();
+        
         const liveTasks = tasks.map(t => {
             if (t.isTracking && t.timerStartedAt) {
                 const elapsedHours = (Date.now() - t.timerStartedAt) / (1000 * 60 * 60);
@@ -27,7 +19,7 @@ const render = () => {
             return t;
         });
 
-        // 2. Date Navigator
+        // Update Date Nav
         const header = document.querySelector('header');
         if (header) {
             document.querySelector('.date-navigator')?.remove();
@@ -37,147 +29,95 @@ const render = () => {
             }));
         }
 
-        // 3. Run Scheduling Logic
-        const { recommendedTasks, metrics } = Scheduler.calculateDailySchedule(liveTasks, capacity, State.viewingDate);
+        const { recommendedTasks, metrics } = Scheduler.calculateDailySchedule(liveTasks, settings.dailyCapacity, State.viewingDate);
 
-        // 4. Update Progress Bar & Metrics
+        // Update Metrics
         const burnRateEl = document.getElementById('burnRate');
         const loadBar = document.getElementById('loadBar');
         if (burnRateEl && loadBar) {
-            const burnData = Components.RenderBurnRate(metrics.totalRequiredHoursToday, capacity);
+            const burnData = Components.RenderBurnRate(metrics.totalRequiredHoursToday, settings.dailyCapacity);
             loadBar.style.width = burnData.width;
             loadBar.style.backgroundColor = burnData.color;
             burnRateEl.innerText = burnData.text;
         }
 
-        // 5. Populate Task List
         const container = document.getElementById('dailyTasks');
         if (container) {
-            container.innerHTML = '';
+            container.innerHTML = '<h3>Recommended for Today</h3>';
             if (recommendedTasks.length === 0) {
                 container.appendChild(Components.EmptyState());
             } else {
                 recommendedTasks.forEach(task => {
                     container.appendChild(Components.TaskCard(task, {
-                        onToggle: handleToggle,
-                        onDelete: handleDelete,
+                        onToggle: (id) => {
+                            const updated = Storage.getTasks().map(t => t.id === id ? { ...t, completed: !t.completed, isTracking: false } : t);
+                            Storage.saveTasks(updated); render();
+                        },
+                        onDelete: (id) => {
+                            Storage.saveTasks(Storage.getTasks().filter(t => t.id !== id)); render();
+                        },
                         onTimer: handleTimer,
-                        onManualEntry: handleManual
+                        onManualEntry: (id, hrs) => {
+                            const updated = Storage.getTasks().map(t => t.id === id ? { ...t, timeWorked: (t.timeWorked || 0) + hrs, accumulatedTime: (t.timeWorked || 0) + hrs } : t);
+                            Storage.saveTasks(updated); render();
+                        }
                     }));
                 });
             }
         }
-    } catch (error) {
-        console.error("Render Error:", error);
-    }
+    } catch (e) { console.error("Render Error:", e); }
 };
-
-// --- ACTION HANDLERS ---
 
 const handleTimer = (id) => {
     const tasks = Storage.getTasks().map(t => {
         if (t.id === id) {
-            if (!t.isTracking) {
-                return { ...t, isTracking: true, timerStartedAt: Date.now(), accumulatedTime: t.timeWorked || 0 };
-            } else {
-                const elapsed = (Date.now() - t.timerStartedAt) / (1000 * 60 * 60);
-                const total = (t.accumulatedTime || 0) + elapsed;
-                return { ...t, isTracking: false, timeWorked: total, accumulatedTime: total, timerStartedAt: null };
-            }
-        }
-        if (t.isTracking) {
+            if (!t.isTracking) return { ...t, isTracking: true, timerStartedAt: Date.now(), accumulatedTime: t.timeWorked || 0 };
             const elapsed = (Date.now() - t.timerStartedAt) / (1000 * 60 * 60);
-            const total = (t.accumulatedTime || 0) + elapsed;
-            return { ...t, isTracking: false, timeWorked: total, accumulatedTime: total, timerStartedAt: null };
+            return { ...t, isTracking: false, timeWorked: (t.accumulatedTime || 0) + elapsed, accumulatedTime: (t.accumulatedTime || 0) + elapsed, timerStartedAt: null };
         }
-        return t;
+        return t.isTracking ? { ...t, isTracking: false, timeWorked: (t.accumulatedTime || 0) + ((Date.now() - t.timerStartedAt) / (1000 * 60 * 60)), accumulatedTime: (t.accumulatedTime || 0) + ((Date.now() - t.timerStartedAt) / (1000 * 60 * 60)), timerStartedAt: null } : t;
     });
-    Storage.saveTasks(tasks);
-    render();
+    Storage.saveTasks(tasks); render();
 };
 
-const handleManual = (id, hrs) => {
-    const tasks = Storage.getTasks().map(t => 
-        t.id === id ? { ...t, timeWorked: (t.timeWorked || 0) + hrs, accumulatedTime: (t.timeWorked || 0) + hrs } : t
-    );
-    Storage.saveTasks(tasks);
-    render();
-};
-
-const handleToggle = (id) => {
-    const tasks = Storage.getTasks().map(t => 
-        t.id === id ? { ...t, completed: !t.completed, isTracking: false } : t
-    );
-    Storage.saveTasks(tasks);
-    render();
-};
-
-const handleDelete = (id) => {
-    const tasks = Storage.getTasks().filter(t => t.id !== id);
-    Storage.saveTasks(tasks);
-    render();
-};
-
-/**
- * INITIALIZATION LOGIC
- */
 const init = () => {
     Theme.init();
 
-    // Settings Toggle
-    const settingsBtn = document.getElementById('settingsBtn');
-    const settingsPanel = document.getElementById('settingsPanel');
-    if (settingsBtn && settingsPanel) {
-        settingsBtn.addEventListener('click', () => {
-            settingsPanel.classList.toggle('hidden');
-            Theme.toggle(); // Switch theme on click
-        });
-    }
+    // Independent Theme Toggle
+    document.getElementById('themeToggle')?.addEventListener('click', () => Theme.toggle());
 
-    const taskForm = document.getElementById('taskForm');
-    if (taskForm) {
-        taskForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const tasks = Storage.getTasks();
-            const newTask = {
-                id: Date.now(),
-                title: document.getElementById('taskTitle').value,
-                estimatedHours: parseFloat(document.getElementById('taskHours').value),
-                priority: parseInt(document.getElementById('taskPriority').value),
-                deadline: document.getElementById('taskDeadline').value,
-                timeWorked: 0,
-                accumulatedTime: 0,
-                completed: false,
-                isTracking: false
-            };
-            tasks.push(newTask);
-            Storage.saveTasks(tasks);
-            taskForm.reset();
-            render();
-        });
-    }
+    // Settings Panel Toggle
+    document.getElementById('settingsBtn')?.addEventListener('click', () => {
+        document.getElementById('settingsPanel')?.classList.toggle('hidden');
+    });
 
-    const capacitySlider = document.getElementById('dailyCapacity');
-    if (capacitySlider) {
-        capacitySlider.addEventListener('input', (e) => {
-            const val = parseInt(e.target.value);
-            Storage.saveSettings({ dailyCapacity: val });
-            const label = document.getElementById('capacityValue');
-            if (label) label.innerText = `${val} hrs`;
-            render();
-        });
-    }
-
-    setInterval(() => {
+    // Task Submission
+    document.getElementById('taskForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
         const tasks = Storage.getTasks();
-        if (tasks.some(t => t.isTracking)) render();
-    }, 60000);
+        tasks.push({
+            id: Date.now(),
+            title: document.getElementById('taskTitle').value,
+            estimatedHours: parseFloat(document.getElementById('taskHours').value),
+            priority: parseInt(document.getElementById('taskPriority').value),
+            deadline: document.getElementById('taskDeadline').value,
+            timeWorked: 0, accumulatedTime: 0, completed: false, isTracking: false
+        });
+        Storage.saveTasks(tasks);
+        e.target.reset();
+        render();
+    });
 
+    // Capacity Slider
+    document.getElementById('dailyCapacity')?.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        Storage.saveSettings({ dailyCapacity: val });
+        document.getElementById('capacityValue').innerText = `${val} hrs`;
+        render();
+    });
+
+    setInterval(() => { if (Storage.getTasks().some(t => t.isTracking)) render(); }, 60000);
     render();
 };
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+document.addEventListener('DOMContentLoaded', init);
