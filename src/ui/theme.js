@@ -10,7 +10,7 @@ export const Theme = {
     },
 
     init() {
-        const savedTheme = localStorage.getItem('theme_preference') || this.modes:DARK;
+        const savedTheme = localStorage.getItem('theme_preference') || this.modes.DARK;
         this.setTheme(savedTheme);
     },
 
