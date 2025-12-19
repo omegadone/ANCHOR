@@ -58,5 +58,27 @@ export const Components = {
             width: `${Math.min(percentage, 100)}%`,
             text: `${hours} / ${capacity} hrs`
         };
+    },
+    DateNavigator(currentDate, onDateChange) {
+        const nav = document.createElement('div');
+        nav.className = 'date-navigator glass';
+        
+        // Generate next 7 days
+        for (let i = 0; i < 7; i++) {
+            const date = new Date();
+            date.setDate(date.getDate() + i);
+            date.setHours(0,0,0,0);
+
+            const isSelected = date.getTime() === currentDate.getTime();
+            const dayBtn = document.createElement('div');
+            dayBtn.className = `date-item ${isSelected ? 'active' : ''}`;
+            dayBtn.innerHTML = `
+                <span class="day-name">${date.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                <span class="day-num">${date.getDate()}</span>
+            `;
+            dayBtn.onclick = () => onDateChange(date);
+            nav.appendChild(dayBtn);
+        }
+        return nav;
     }
 };

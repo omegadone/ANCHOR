@@ -101,3 +101,31 @@ input, select, button {
     width: 0%;
     transition: width 0.5s ease-out;
 }
+.date-navigator {
+    display: flex;
+    justify-content: space-between;
+    padding: 15px !important;
+    margin-bottom: 25px;
+    gap: 10px;
+    overflow-x: auto; /* For mobile swipe */
+}
+
+.date-item {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+}
+
+.date-item.active {
+    background: var(--accent);
+    color: #0f172a;
+    font-weight: bold;
+    transform: scale(1.05);
+}
+
+.date-item .day-name { display: block; font-size: 0.7rem; opacity: 0.8; }
+.date-item .day-num { font-size: 1.1rem; font-weight: 800; }

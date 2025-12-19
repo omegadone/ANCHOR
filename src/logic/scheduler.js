@@ -1,62 +1,77 @@
 /**
  * scheduler.js
- * Core Engine for Task Prioritization and Workload Calculation
+ * The Optimization Engine: Handles Proportional Distribution & Priority Scoring
  */
 
 export const Scheduler = {
     /**
-     * Calculates the minimum work required for today.
-     * @param {Array} tasks - Array of task objects
-     * @param {number} dailyCapacity - User's set hours per day
-     * @returns {Object} { recommendedTasks, metrics }
+     * Calculates the optimized workload for a specific target date.
+     * @param {Array} tasks - All user tasks from storage
+     * @param {number} dailyCapacity - Max hours per day
+     * @param {Date} targetDate - The date being viewed/simulated
      */
-    calculateDailySchedule(tasks, dailyCapacity) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    calculateDailySchedule(tasks, dailyCapacity, targetDate = new Date()) {
+        // Normalize the targetDate to midnight for accurate day-diff calculation
+        const viewDate = new Date(targetDate);
+        viewDate.setHours(0, 0, 0, 0);
 
-        let totalRequiredHoursToday = 0;
+        let allocatedHours = 0;
+
         const processedTasks = tasks
             .filter(task => !task.completed)
             .map(task => {
                 const deadline = new Date(task.deadline);
                 deadline.setHours(0, 0, 0, 0);
                 
-                // Calculate days remaining (minimum 1 to avoid division by zero)
-                const diffTime = deadline - today;
+                // Calculate days from the viewed date to the deadline
+                const diffTime = deadline - viewDate;
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 
-                // DaysRemaining <= 0 means it's due today or overdue
+                /**
+                 * LOGIC:
+                 * If diffDays is 0, the task is due today (full effort required).
+                 * If diffDays is negative, it's overdue (full effort required).
+                 * If diffDays is > 0, we distribute the effort over remaining days.
+                 */
                 const daysRemaining = diffDays <= 0 ? 1 : diffDays;
                 
-                // The "Minimum Daily Commitment" to finish by deadline
-                // Formula: Total Hours / Days Left
-                const minCommitmentToday = task.estimatedHours / daysRemaining;
+                // The minimum amount of work to stay on track for this specific date
+                const minCommitmentToday = parseFloat((task.estimatedHours / daysRemaining).toFixed(2));
 
                 return {
                     ...task,
                     daysRemaining,
-                    minCommitmentToday: parseFloat(minCommitmentToday.toFixed(2)),
-                    urgencyScore: (task.priority * 1.5) + (1 / daysRemaining)
+                    minCommitmentToday,
+                    // Urgency Score: Higher priority and closer deadlines rank higher
+                    urgencyScore: (task.priority * 2) + (10 / (daysRemaining + 0.1)),
+                    // Filter out tasks whose deadlines passed BEFORE the viewed date
+                    isExpired: deadline < viewDate
                 };
-            });
+            })
+            .filter(task => !task.isExpired); // Only show tasks relevant to this day or later
 
-        // Sort by urgency and deadline
-        processedTasks.sort((a, b) => b.urgencyScore - a.urgencyScore || a.daysRemaining - b.daysRemaining);
+        // Sort by urgency so we fill the user's "Daily Capacity" with the most important work first
+        processedTasks.sort((a, b) => b.urgencyScore - a.urgencyScore);
 
-        // Select tasks for today until dailyCapacity is reached
         const recommendedTasks = [];
-        let allocatedHours = 0;
-
         for (const task of processedTasks) {
+            // Check if adding this task exceeds the work-life balance limit
             if (allocatedHours + task.minCommitmentToday <= dailyCapacity) {
                 recommendedTasks.push(task);
                 allocatedHours += task.minCommitmentToday;
             } else if (allocatedHours < dailyCapacity) {
-                // Add partial task if capacity remains
+                // Partial allocation: If we have 1 hour left but the task needs 2, 
+                // we suggest doing the remaining 1 hour today.
                 const remainingSpace = dailyCapacity - allocatedHours;
-                recommendedTasks.push({ ...task, partial: true, partialHours: remainingSpace });
-                allocatedHours = dailyCapacity;
-                break;
+                if (remainingSpace > 0.25) { // Only add if it's more than 15 mins of work
+                    recommendedTasks.push({ 
+                        ...task, 
+                        isPartial: true, 
+                        partialHours: parseFloat(remainingSpace.toFixed(2)) 
+                    });
+                    allocatedHours += remainingSpace;
+                }
+                break; // Capacity reached
             }
         }
 
@@ -65,7 +80,7 @@ export const Scheduler = {
             metrics: {
                 totalRequiredHoursToday: parseFloat(allocatedHours.toFixed(2)),
                 capacityUsage: ((allocatedHours / dailyCapacity) * 100).toFixed(1),
-                isOverloaded: allocatedHours > dailyCapacity
+                isOverloaded: allocatedHours >= dailyCapacity
             }
         };
     }
