@@ -3,141 +3,117 @@ import { Storage } from './store/storage.js';
 import { Theme } from './ui/theme.js';
 import { Components } from './ui/components.js';
 
-// --- GLOBAL STATE ---
-const State = {
-    viewingDate: new Date()
-};
-State.viewingDate.setHours(0, 0, 0, 0);
+const State = { viewingDate: new Date() };
+State.viewingDate.setHours(0,0,0,0);
 
-// --- CORE RENDER ENGINE ---
+// Update UI every minute if a timer is active
+setInterval(() => {
+    const tasks = Storage.getTasks();
+    if (tasks.some(t => t.isTracking)) render();
+}, 60000);
+
 const render = () => {
     const tasks = Storage.getTasks();
     const settings = Storage.getSettings();
-    
-    // 1. Refresh the Date Navigator
-    const header = document.querySelector('header');
-    const existingNav = document.querySelector('.date-navigator');
-    if (existingNav) existingNav.remove();
-    
-    const nav = Components.DateNavigator(State.viewingDate, (selectedDate) => {
-        State.viewingDate = selectedDate;
-        render(); // Recursive call to refresh view
+
+    // 1. Calculate live time for any active timers
+    const liveTasks = tasks.map(t => {
+        if (t.isTracking && t.timerStartedAt) {
+            const elapsedHours = (Date.now() - t.timerStartedAt) / (1000 * 60 * 60);
+            return { ...t, timeWorked: (t.accumulatedTime || 0) + elapsedHours };
+        }
+        return t;
     });
-    header.after(nav);
 
-    // 2. Calculate schedule for the active date
-    const { recommendedTasks, metrics } = Scheduler.calculateDailySchedule(
-        tasks, 
-        settings.dailyCapacity, 
-        State.viewingDate
-    );
+    // 2. Refresh Date Navigator
+    const header = document.querySelector('header');
+    document.querySelector('.date-navigator')?.remove();
+    header.after(Components.DateNavigator(State.viewingDate, (d) => { State.viewingDate = d; render(); }));
 
-    // 3. Update Progress Metrics
-    const burnRateEl = document.getElementById('burnRate');
+    // 3. Process Schedule
+    const { recommendedTasks, metrics } = Scheduler.calculateDailySchedule(liveTasks, settings.dailyCapacity, State.viewingDate);
+
+    // 4. Update Header Metrics
+    const burnData = Components.RenderBurnRate(metrics.totalRequiredHoursToday, settings.dailyCapacity);
     const loadBar = document.getElementById('loadBar');
-    const statusMsg = document.getElementById('statusMessage');
-    
-    if (burnRateEl && loadBar) {
-        const burnData = Components.RenderBurnRate(metrics.totalRequiredHoursToday, settings.dailyCapacity);
-        burnRateEl.innerText = burnData.text;
-        burnRateEl.style.color = burnData.color;
+    if (loadBar) {
         loadBar.style.width = burnData.width;
         loadBar.style.backgroundColor = burnData.color;
-
-        const isToday = State.viewingDate.getTime() === new Date().setHours(0,0,0,0);
-        statusMsg.innerText = metrics.totalRequiredHoursToday > settings.dailyCapacity 
-            ? "Warning: Over capacity for this day." 
-            : `Schedule optimized for ${isToday ? 'Today' : State.viewingDate.toLocaleDateString()}.`;
+        document.getElementById('burnRate').innerText = burnData.text;
     }
 
-    // 4. Populate Task List
+    // 5. Update Task List
     const container = document.getElementById('dailyTasks');
-    const listTitle = document.querySelector('.task-list-container h3');
-    
-    if (container) {
-        container.innerHTML = '';
-        listTitle.innerText = State.viewingDate.getTime() === new Date().setHours(0,0,0,0) 
-            ? "Recommended for Today" 
-            : `Projected for ${State.viewingDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+    container.innerHTML = '';
+    if (recommendedTasks.length === 0) {
+        container.appendChild(Components.EmptyState());
+    } else {
+        recommendedTasks.forEach(task => {
+            container.appendChild(Components.TaskCard(task, {
+                onToggle: handleToggle,
+                onDelete: handleDelete,
+                onTimer: handleTimer,
+                onManualEntry: handleManual
+            }));
+        });
+    }
+};
 
-        if (recommendedTasks.length === 0) {
-            container.appendChild(Components.EmptyState());
-        } else {
-            recommendedTasks.forEach(task => {
-                const card = Components.TaskCard(
-                    task, 
-                    (id) => handleToggleTask(id), 
-                    (id) => handleDeleteTask(id)
-                );
-                container.appendChild(card);
-            });
+const handleTimer = (id) => {
+    const tasks = Storage.getTasks().map(t => {
+        if (t.id === id) {
+            if (!t.isTracking) return { ...t, isTracking: true, timerStartedAt: Date.now(), accumulatedTime: t.timeWorked || 0 };
+            const elapsed = (Date.now() - t.timerStartedAt) / (1000 * 60 * 60);
+            const total = (t.accumulatedTime || 0) + elapsed;
+            return { ...t, isTracking: false, timeWorked: total, accumulatedTime: total, timerStartedAt: null };
         }
-    }
-};
-
-// --- INTERACTION HANDLERS ---
-
-const handleToggleTask = (id) => {
-    const tasks = Storage.getTasks().map(t => t.id === id ? {...t, completed: !t.completed} : t);
-    Storage.saveTasks(tasks);
-    render();
-};
-
-const handleDeleteTask = (id) => {
-    const tasks = Storage.getTasks().filter(t => t.id !== id);
-    Storage.saveTasks(tasks);
-    render();
-};
-
-const initListeners = () => {
-    const taskForm = document.getElementById('taskForm');
-    const dailyCapacityInput = document.getElementById('dailyCapacity');
-    const settingsBtn = document.getElementById('settingsBtn');
-
-    if (taskForm) {
-        taskForm.onsubmit = (e) => {
-            e.preventDefault();
-            const tasks = Storage.getTasks();
-            const newTask = {
-                id: Date.now(),
-                title: document.getElementById('taskTitle').value,
-                estimatedHours: parseFloat(document.getElementById('taskHours').value),
-                priority: parseInt(document.getElementById('taskPriority').value),
-                deadline: document.getElementById('taskDeadline').value,
-                completed: false
-            };
-            tasks.push(newTask);
-            Storage.saveTasks(tasks);
-            taskForm.reset();
-            render();
-        };
-    }
-
-    if (dailyCapacityInput) {
-        dailyCapacityInput.oninput = (e) => {
-            const val = parseInt(e.target.value);
-            document.getElementById('capacityValue').innerText = `${val} hrs`;
-            Storage.saveSettings({ dailyCapacity: val });
-            render();
-        };
-    }
-
-    if (settingsBtn) {
-        settingsBtn.onclick = () => {
-            document.getElementById('settingsPanel')?.classList.toggle('hidden');
-            Theme.toggle();
-        };
-    }
-};
-
-// --- APP STARTUP ---
-Theme.init();
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-        initListeners();
-        render();
+        return t.isTracking ? { ...t, isTracking: false, timeWorked: (t.accumulatedTime || 0) + ((Date.now() - t.timerStartedAt) / (1000 * 60 * 60)), accumulatedTime: (t.accumulatedTime || 0) + ((Date.now() - t.timerStartedAt) / (1000 * 60 * 60)), timerStartedAt: null } : t;
     });
-} else {
-    initListeners();
+    Storage.saveTasks(tasks);
     render();
-}
+};
+
+const handleManual = (id, hrs) => {
+    const tasks = Storage.getTasks().map(t => t.id === id ? { ...t, timeWorked: (t.timeWorked || 0) + hrs, accumulatedTime: (t.timeWorked || 0) + hrs } : t);
+    Storage.saveTasks(tasks);
+    render();
+};
+
+const handleToggle = (id) => {
+    const tasks = Storage.getTasks().map(t => t.id === id ? { ...t, completed: !t.completed, isTracking: false } : t);
+    Storage.saveTasks(tasks);
+    render();
+};
+
+const handleDelete = (id) => {
+    Storage.saveTasks(Storage.getTasks().filter(t => t.id !== id));
+    render();
+};
+
+// Initial Setup
+Theme.init();
+document.getElementById('taskForm').onsubmit = (e) => {
+    e.preventDefault();
+    const tasks = Storage.getTasks();
+    tasks.push({
+        id: Date.now(),
+        title: document.getElementById('taskTitle').value,
+        estimatedHours: parseFloat(document.getElementById('taskHours').value),
+        priority: parseInt(document.getElementById('taskPriority').value),
+        deadline: document.getElementById('taskDeadline').value,
+        timeWorked: 0,
+        accumulatedTime: 0,
+        completed: false
+    });
+    Storage.saveTasks(tasks);
+    e.target.reset();
+    render();
+};
+
+document.getElementById('dailyCapacity').oninput = (e) => {
+    Storage.saveSettings({ dailyCapacity: parseInt(e.target.value) });
+    document.getElementById('capacityValue').innerText = `${e.target.value} hrs`;
+    render();
+};
+
+render();

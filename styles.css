@@ -129,3 +129,16 @@ input, select, button {
 
 .date-item .day-name { display: block; font-size: 0.7rem; opacity: 0.8; }
 .date-item .day-num { font-size: 1.1rem; font-weight: 800; }
+.task-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
+.tracking-group { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.manual-box { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 2px; }
+.manual-input { width: 50px !important; border: none !important; margin: 0 !important; font-size: 0.8rem !important; }
+.add-manual-btn { width: auto !important; padding: 4px 8px !important; font-size: 0.7rem !important; margin: 0 !important; background: var(--accent); color: #000; border: none; border-radius: 6px; }
+
+.tracking-active { border-right: 4px solid var(--accent); background: rgba(56, 189, 248, 0.1); }
+.pulse-icon { color: #f87171; animation: pulse 1.5s infinite; margin-left: 8px; }
+
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+.task-stats { display: flex; gap: 15px; font-size: 0.85rem; color: var(--text-dim); margin-top: 5px; }
+.task-stats strong { color: var(--text-main); }
