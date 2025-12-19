@@ -28,14 +28,13 @@ export const Components = {
                         <button class="add-manual-btn">Add</button>
                     </div>
                 </div>
-                <div class="action-group">
-                    <button class="complete-btn">${task.completed ? '✓' : '○'}</button>
-                    <button class="delete-btn">✕</button>
+                <div class="action-group" style="display: flex; gap: 5px; margin-top: 10px;">
+                    <button class="complete-btn" style="flex:1;">${task.completed ? '✓' : '○'}</button>
+                    <button class="delete-btn" style="flex:1;">✕</button>
                 </div>
             </div>
         `;
 
-        // Event Bindings
         card.querySelector('.timer-btn').onclick = () => onTimer(task.id);
         card.querySelector('.add-manual-btn').onclick = () => {
             const input = document.getElementById(`man-${task.id}`);
@@ -74,7 +73,9 @@ export const Components = {
     EmptyState() {
         const div = document.createElement('div');
         div.className = 'empty-state';
-        div.innerHTML = `<p>No critical tasks for this date.</p>`;
+        div.style.textAlign = 'center';
+        div.style.padding = '40px';
+        div.innerHTML = `<p style="opacity:0.6;">No tasks scheduled for this date.</p>`;
         return div;
     }
 };

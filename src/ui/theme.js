@@ -2,18 +2,12 @@
  * theme.js
  * Handles visual modes and CSS variable injection
  */
-
 export const Theme = {
-    modes: {
-        DARK: 'dark',
-        LIGHT: 'light'
-    },
-
+    modes: { DARK: 'dark', LIGHT: 'light' },
     init() {
         const savedTheme = localStorage.getItem('theme_preference') || this.modes.DARK;
         this.setTheme(savedTheme);
     },
-
     setTheme(mode) {
         const root = document.documentElement;
         if (mode === this.modes.LIGHT) {
@@ -31,7 +25,6 @@ export const Theme = {
         }
         localStorage.setItem('theme_preference', mode);
     },
-
     toggle() {
         const current = localStorage.getItem('theme_preference');
         this.setTheme(current === this.modes.DARK ? this.modes.LIGHT : this.modes.DARK);

@@ -11,7 +11,6 @@ State.viewingDate.setHours(0,0,0,0);
 
 /**
  * CORE RENDER ENGINE
- * Wrapped in a try-catch to prevent silent failures
  */
 const render = () => {
     try {
@@ -86,7 +85,6 @@ const handleTimer = (id) => {
                 return { ...t, isTracking: false, timeWorked: total, accumulatedTime: total, timerStartedAt: null };
             }
         }
-        // Multi-tasking prevention: Stop other timers
         if (t.isTracking) {
             const elapsed = (Date.now() - t.timerStartedAt) / (1000 * 60 * 60);
             const total = (t.accumulatedTime || 0) + elapsed;
@@ -122,10 +120,19 @@ const handleDelete = (id) => {
 
 /**
  * INITIALIZATION LOGIC
- * Wrapped in DOMContentLoaded to ensure HTML elements exist before we touch them.
  */
 const init = () => {
     Theme.init();
+
+    // Settings Toggle
+    const settingsBtn = document.getElementById('settingsBtn');
+    const settingsPanel = document.getElementById('settingsPanel');
+    if (settingsBtn && settingsPanel) {
+        settingsBtn.addEventListener('click', () => {
+            settingsPanel.classList.toggle('hidden');
+            Theme.toggle(); // Switch theme on click
+        });
+    }
 
     const taskForm = document.getElementById('taskForm');
     if (taskForm) {
@@ -161,7 +168,6 @@ const init = () => {
         });
     }
 
-    // Refresh display every minute for active timers
     setInterval(() => {
         const tasks = Storage.getTasks();
         if (tasks.some(t => t.isTracking)) render();
@@ -170,7 +176,6 @@ const init = () => {
     render();
 };
 
-// Start the app safely
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

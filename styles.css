@@ -17,6 +17,7 @@ body {
     padding: 20px;
     display: flex;
     justify-content: center;
+    transition: background 0.3s ease;
 }
 
 .app-container {
@@ -24,7 +25,6 @@ body {
     max-width: 1200px;
 }
 
-/* Glassmorphism Effect */
 .glass {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
@@ -49,7 +49,6 @@ header h1 span { color: var(--accent); }
     gap: 24px;
 }
 
-/* Responsive Grid for Tablets/Phones */
 @media (max-width: 768px) {
     .dashboard { grid-template-columns: 1fr; }
 }
@@ -78,13 +77,14 @@ input, select, button {
 
 .btn-primary:hover { transform: translateY(-2px); }
 
-/* Task Items */
+.hidden { display: none !important; }
+
 .task-card {
     background: rgba(255, 255, 255, 0.03);
     padding: 16px;
     border-radius: 16px;
     margin-bottom: 12px;
-    border-left: 4px solid var(--accent);
+    transition: all 0.2s ease;
 }
 
 .progress-container {
@@ -101,13 +101,14 @@ input, select, button {
     width: 0%;
     transition: width 0.5s ease-out;
 }
+
 .date-navigator {
     display: flex;
     justify-content: space-between;
     padding: 15px !important;
     margin-bottom: 25px;
     gap: 10px;
-    overflow-x: auto; /* For mobile swipe */
+    overflow-x: auto;
 }
 
 .date-item {
@@ -129,6 +130,7 @@ input, select, button {
 
 .date-item .day-name { display: block; font-size: 0.7rem; opacity: 0.8; }
 .date-item .day-num { font-size: 1.1rem; font-weight: 800; }
+
 .task-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 15px; }
 .tracking-group { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
 .manual-box { display: flex; background: rgba(0,0,0,0.2); border-radius: 8px; padding: 2px; }
